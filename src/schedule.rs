@@ -1,9 +1,9 @@
 use windows::core::BSTR;
 use windows::Win32::System::TaskScheduler::{
     IActionCollection, IRegistrationInfo, ITaskDefinition, ITaskFolder, ITaskService,
-    ITaskSettings, ITrigger, ITriggerCollection, TASK_LOGON_INTERACTIVE_TOKEN,
+    ITaskSettings, ITrigger, ITriggerCollection, TASK_LOGON_INTERACTIVE_TOKEN, TaskScheduler
 };
-use windows::Win32::System::Com::VARIANT;
+use windows::Win32::System::Com::{CLSCTX_ALL, CoCreateInstance, VARIANT};
 
 use crate::com::ComRuntime;
 
@@ -74,5 +74,30 @@ impl TaskScheduler {
     /// ```
     pub fn get_com(&self) -> ComRuntime {
         self.com.clone()
+    }
+
+    /// Removing task
+    /// # Example
+    /// ```
+    /// use planif::schedule::TaskScheduler;
+    ///
+    /// let ts = TaskScheduler::delete("some_task_name");
+    /// ```
+    pub fn delete_task(task_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        unsafe {
+            let _com = Self::new();
+            let task_service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_ALL)?;
+            task_service.Connect(
+                VARIANT::default(),
+                VARIANT::default(),
+                VARIANT::default(),
+                VARIANT::default(),
+            )?;
+
+            let task_folder: ITaskFolder = task_service.GetFolder(&BSTR::from("\\"))?;
+            task_folder.DeleteTask(&BSTR::from(task_name), 0)?;
+
+            Ok(())
+        }
     }
 }
