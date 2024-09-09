@@ -80,12 +80,12 @@ impl From<Month> for i16 {
 pub enum TaskCreationFlags {
     /// The Task Scheduler service registers the task as a new task.
     Create = 2,
-    /// The Task Scheduler service either registers the task as a new task or as an updated version 
+    /// The Task Scheduler service either registers the task as a new task or as an updated version
     /// if the task already exists. Equivalent to `TaskCreationFlags.Create | TaskCreationFlags.Update`
     CreateOrUpdate = 6,
     /// The Task Scheduler service registers the disabled task. A disabled task cannot run until it is enabled.
     Disable = 8,
-    /// The Task Scheduler service is prevented from adding the allow access-control entry (ACE) 
+    /// The Task Scheduler service is prevented from adding the allow access-control entry (ACE)
     /// for the context principal. When the [register method](crate::schedule::Schedule::register) function is called with this flag to
     /// update a task, the Task Scheduler service does not add the ACE for the new context principal
     /// and does not remove the ACE from the old context principal.

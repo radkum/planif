@@ -1,9 +1,9 @@
 use windows::core::BSTR;
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, VARIANT};
 use windows::Win32::System::TaskScheduler::{
     IActionCollection, IRegistrationInfo, ITaskDefinition, ITaskFolder, ITaskService,
-    ITaskSettings, ITrigger, ITriggerCollection, TASK_LOGON_INTERACTIVE_TOKEN, TaskScheduler
+    ITaskSettings, ITrigger, ITriggerCollection, TaskScheduler, TASK_LOGON_INTERACTIVE_TOKEN,
 };
-use windows::Win32::System::Com::{CLSCTX_ALL, CoCreateInstance, VARIANT};
 
 use crate::com::ComRuntime;
 
@@ -46,7 +46,7 @@ impl Schedule {
 /// TaskScheduler represents the actions you can take for using the Windows Task Scheduler.
 /// For example: Creating new schedules, fetching the COM, etc.
 pub struct TaskScheduler {
-    com: ComRuntime
+    com: ComRuntime,
 }
 
 impl TaskScheduler {
@@ -60,7 +60,7 @@ impl TaskScheduler {
     ///
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            com: ComRuntime::new()?
+            com: ComRuntime::new()?,
         })
     }
 
@@ -68,7 +68,7 @@ impl TaskScheduler {
     /// # Example
     /// ```
     /// use planif::schedule::TaskScheduler;
-    /// 
+    ///
     /// let ts = TaskScheduler::new().unwrap();
     /// let com = ts.get_com();
     /// ```

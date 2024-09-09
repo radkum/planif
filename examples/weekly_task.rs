@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use planif::enums::{ DayOfWeek, TaskCreationFlags };
+use planif::enums::{DayOfWeek, TaskCreationFlags};
 use planif::schedule::TaskScheduler;
 use planif::schedule_builder::{Action, ScheduleBuilder};
 

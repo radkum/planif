@@ -1,7 +1,5 @@
 use std::rc::Rc;
-use windows::Win32::System::Com::{
-    CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED
-};
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 
 /// Represents a COM runtime required for building schedules tasks
 #[derive(Clone)]
@@ -33,4 +31,3 @@ impl Drop for Com {
         }
     }
 }
-

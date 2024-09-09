@@ -1,15 +1,13 @@
 use crate::{
+    com::ComRuntime,
     enums::{DayOfMonth, DayOfWeek, Month, WeekOfMonth},
     error::{InvalidOperationError, RequiredPropertyError},
     schedule::Schedule,
     settings::{Duration, PrincipalSettings, Settings},
-    com::ComRuntime,
 };
-use windows::Win32::System::Com::{
-    CoCreateInstance, CLSCTX_ALL, VARIANT,
-};
-use windows::core::{BSTR, ComInterface};
+use windows::core::{ComInterface, BSTR};
 use windows::Win32::Foundation::VARIANT_BOOL;
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, VARIANT};
 use windows::Win32::System::TaskScheduler::{
     IAction, IActionCollection, IBootTrigger, IDailyTrigger, IEventTrigger, IExecAction,
     IIdleTrigger, ILogonTrigger, IMonthlyDOWTrigger, IMonthlyTrigger, INetworkSettings, IPrincipal,

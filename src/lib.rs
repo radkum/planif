@@ -38,6 +38,8 @@
 //!
 //! For more examples, refer to the `planif/examples` folder. The folder contains code for creating each of the triggers.
 
+/// Com
+pub mod com;
 /// Enums used throughout the crate.
 pub mod enums;
 /// Errors used throughout the crate.
@@ -48,5 +50,3 @@ pub mod schedule;
 pub mod schedule_builder;
 /// Various settings available while building [Schedules](schedule::Schedule).
 pub mod settings;
-/// Com
-pub mod com;

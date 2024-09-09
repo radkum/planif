@@ -1,6 +1,6 @@
 use planif::enums::TaskCreationFlags;
-use planif::schedule_builder::{Action, ScheduleBuilder};
 use planif::schedule::TaskScheduler;
+use planif::schedule_builder::{Action, ScheduleBuilder};
 
 use planif::settings::Duration;
 fn main() -> Result<(), Box<dyn std::error::Error>> {

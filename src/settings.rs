@@ -315,7 +315,7 @@ impl fmt::Display for Duration {
             format_duration!(s, self.seconds, "S");
         }
         if s.is_empty() {
-            return write!(f, "")
+            return write!(f, "");
         }
 
         write!(f, "P{}", s)
@@ -367,7 +367,7 @@ mod tests {
         d.hours = Some(1);
         assert_eq!("PT1H2M3S", d.to_string());
     }
-    
+
     #[test]
     fn duration_zero_year_removed() {
         let mut d = Duration::new();

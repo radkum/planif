@@ -1,7 +1,7 @@
 use chrono::{Duration, Local};
 use planif::enums::TaskCreationFlags;
-use planif::schedule_builder::{Action, ScheduleBuilder};
 use planif::schedule::TaskScheduler;
+use planif::schedule_builder::{Action, ScheduleBuilder};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ts = TaskScheduler::new()?;
