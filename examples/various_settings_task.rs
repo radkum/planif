@@ -4,7 +4,7 @@ use planif::schedule::TaskScheduler;
 use planif::schedule_builder::{Action, ScheduleBuilder};
 use planif::settings::Settings;
 
-fn main() -> Result<(), crate::error::Error> {
+fn main() -> anyhow::Result<()> {
     let ts = TaskScheduler::new()?;
     let com = ts.get_com();
     let sb = ScheduleBuilder::new(&com).unwrap();

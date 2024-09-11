@@ -3,7 +3,7 @@ use planif::enums::{DayOfWeek, Month, TaskCreationFlags, WeekOfMonth};
 use planif::schedule::TaskScheduler;
 use planif::schedule_builder::{Action, MonthlyDOW, ScheduleBuilder};
 
-fn main() -> Result<(), crate::error::Error> {
+fn main() -> anyhow::Result<()> {
     let ts = TaskScheduler::new()?;
     let com = ts.get_com();
 
