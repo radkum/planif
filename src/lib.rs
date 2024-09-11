@@ -21,7 +21,7 @@
 //! use planif::schedule::TaskCreationFlags;
 //! use planif::schedule_builder::{Action, ScheduleBuilder};
 //!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! fn main() -> Result<(), crate::error::Error> {
 //!     let sb = ScheduleBuilder::new().unwrap();
 //!     sb.create_daily()
 //!         .author("planif")?
@@ -42,8 +42,6 @@
 pub mod com;
 /// Enums used throughout the crate.
 pub mod enums;
-/// Errors used throughout the crate.
-pub mod error;
 /// Register scheduled tasks.
 pub mod schedule;
 /// Build different [Schedules](schedule::Schedule) for the Windows Task Scheduler.

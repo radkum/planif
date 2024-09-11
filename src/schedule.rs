@@ -6,7 +6,7 @@ use windows::Win32::System::TaskScheduler::{
 };
 
 use crate::com::ComRuntime;
-
+use anyhow::Result;
 #[derive(Debug, PartialEq)]
 /// A schedule is created by a [schedule builder](crate::schedule_builder). Once created, the
 /// Schedule can be registered with the Windows Task Scheduler.
@@ -25,7 +25,7 @@ pub struct Schedule {
 
 impl Schedule {
     /// Registers the schedule. Flags can be set by using the [TaskCreationFlags](crate::enums::TaskCreationFlags) enum.
-    pub fn register(self, task_name: &str, flags: i32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn register(self, task_name: &str, flags: i32) -> Result<()> {
         unsafe {
             self.task_folder.RegisterTaskDefinition(
                 &BSTR::from(task_name),
@@ -58,7 +58,7 @@ impl TaskScheduler {
     /// let ts = TaskScheduler::new().unwrap();
     /// ```
     ///
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             com: ComRuntime::new()?,
         })
@@ -83,7 +83,7 @@ impl TaskScheduler {
     ///
     /// let ts = TaskScheduler::delete("some_task_name");
     /// ```
-    pub fn delete_task(task_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn delete_task(task_name: &str) -> Result<()> {
         unsafe {
             let _com = Self::new();
             let task_service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_ALL)?;

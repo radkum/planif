@@ -1,10 +1,11 @@
 use crate::{
     com::ComRuntime,
     enums::{DayOfMonth, DayOfWeek, Month, WeekOfMonth},
-    error::{InvalidOperationError, RequiredPropertyError},
     schedule::Schedule,
     settings::{Duration, PrincipalSettings, Settings},
 };
+use anyhow::anyhow;
+use anyhow::Result;
 use windows::core::{ComInterface, BSTR};
 use windows::Win32::Foundation::VARIANT_BOOL;
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, VARIANT};
@@ -18,7 +19,6 @@ use windows::Win32::System::TaskScheduler::{
     TASK_TRIGGER_MONTHLY, TASK_TRIGGER_MONTHLYDOW, TASK_TRIGGER_REGISTRATION, TASK_TRIGGER_TIME,
     TASK_TRIGGER_WEEKLY,
 };
-
 /* triggers */
 /// Marker type for base [`ScheduleBuilder<Base>`]
 pub struct Base {}
@@ -62,7 +62,7 @@ impl ScheduleBuilder<Base> {
     /// let com = ComRuntime::new()?;
     /// let builder: ScheduleBuilder<Base> = ScheduleBuilder::new(&com).unwrap();
     /// ```
-    pub fn new(com: &ComRuntime) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(com: &ComRuntime) -> Result<Self> {
         unsafe {
             let sb_com = com.clone();
 
@@ -307,7 +307,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .in_folder("\\My Tasks").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn in_folder(mut self, folder: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn in_folder(mut self, folder: &str) -> Result<Self> {
         unsafe {
             // check if folder exists, if not make it
             self.schedule.task_folder =
@@ -330,7 +330,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     /// Creates the action to execute when the task is run.
     ///
     /// See examples <https://github.com/mattrobineau/planif/tree/main/examples>
-    pub fn action(self, action: Action) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn action(self, action: Action) -> Result<Self> {
         unsafe {
             let i_action: IAction = self.schedule.actions.Create(TASK_ACTION_EXEC)?;
             let i_exec_action: IExecAction = i_action.cast()?;
@@ -358,7 +358,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .author("Alice").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn author(self, author: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn author(self, author: &str) -> Result<Self> {
         unsafe {
             self.schedule
                 .registration_info
@@ -381,17 +381,17 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .author("Alice").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn build(self) -> Result<Schedule, Box<dyn std::error::Error>> {
+    pub fn build(self) -> Result<Schedule> {
         if self.schedule.trigger.is_none() {
-            return Err(Box::new(InvalidOperationError {
-                message: "Folder or trigger not set, cannot create scheduled task".to_string(),
-            }));
+            return Err(anyhow!(
+                "Folder or trigger not set, cannot create scheduled task"
+            ));
         }
 
         if self.schedule.force_start_boundary {
-            return Err(Box::new(RequiredPropertyError {
-                message: "The start boundary must be set for this trigger type".to_string(),
-            }));
+            return Err(anyhow!(
+                "The start boundary must be set for this trigger type"
+            ));
         }
         Ok(self.schedule)
     }
@@ -411,7 +411,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .description("This is my trigger").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn description(self, description: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn description(self, description: &str) -> Result<Self> {
         unsafe {
             self.schedule
                 .registration_info
@@ -439,10 +439,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     ).unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn execution_time_limit(
-        self,
-        time_limit: Duration,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn execution_time_limit(self, time_limit: Duration) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 trigger.SetExecutionTimeLimit(&BSTR::from(time_limit.to_string()))?;
@@ -474,7 +471,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .start_boundary("2007-01-01T08:00:00").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn start_boundary(mut self, start: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn start_boundary(mut self, start: &str) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 trigger.SetStartBoundary(&BSTR::from(start))?;
@@ -506,7 +503,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .end_boundary("2007-01-01T08:00:00").unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn end_boundary(self, end: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn end_boundary(self, end: &str) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 trigger.SetEndBoundary(&BSTR::from(end))?;
@@ -569,7 +566,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
         duration: Duration,
         interval: Duration,
         stop_at_duration_end: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let repetition: IRepetitionPattern = trigger.Repetition()?;
@@ -613,19 +610,13 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .principal(settings).unwrap()
     ///     .build().unwrap();
     /// ```
-    pub fn principal(
-        self,
-        settings: PrincipalSettings,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn principal(self, settings: PrincipalSettings) -> Result<Self> {
         unsafe {
             let principal: IPrincipal = self.schedule.task_definition.Principal()?;
             principal.SetDisplayName(&BSTR::from(settings.display_name))?;
 
             if settings.group_id.is_some() && settings.user_id.is_some() {
-                return Err(Box::new(InvalidOperationError {
-                    message: "Invalid operation: group_id and user_id are mutually exclusive and cannot both be set."
-                        .to_string(),
-                }));
+                return Err(anyhow!("Invalid operation: group_id and user_id are mutually exclusive and cannot both be set."));
             } else if let Some(gid) = settings.group_id {
                 principal.SetGroupId(&BSTR::from(gid))?;
             } else if let Some(uid) = settings.user_id {
@@ -660,7 +651,7 @@ impl<Frequency> ScheduleBuilder<Frequency> {
     ///     .settings(settings)
     ///     .unwrap();
     /// ```
-    pub fn settings(self, settings: Settings) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn settings(self, settings: Settings) -> Result<Self> {
         unsafe {
             let task_settings: ITaskSettings = self.schedule.task_definition.Settings()?;
             // Handle idle settings
@@ -791,7 +782,7 @@ impl ScheduleBuilder<Boot> {
     ///     .create_boot()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_BOOT)?;
             let i_boot_trigger: IBootTrigger = trigger.cast::<IBootTrigger>()?;
@@ -819,7 +810,7 @@ impl ScheduleBuilder<Boot> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .delay(Duration { seconds: Some(2), days: Some(5) }).unwrap();
     /// ```
-    pub fn delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn delay(self, delay: Duration) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_boot_trigger: IBootTrigger = trigger.cast::<IBootTrigger>()?;
@@ -847,7 +838,7 @@ impl ScheduleBuilder<Daily> {
     ///     .create_daily()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_DAILY)?;
             let i_daily_trigger: IDailyTrigger = trigger.cast::<IDailyTrigger>()?;
@@ -871,7 +862,7 @@ impl ScheduleBuilder<Daily> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .days_interval(1).unwrap();
     /// ```
-    pub fn days_interval(self, days: i16) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn days_interval(self, days: i16) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_daily_trigger: IDailyTrigger = i_trigger.cast::<IDailyTrigger>()?;
@@ -896,7 +887,7 @@ impl ScheduleBuilder<Daily> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .random_delay(Duration { seconds: Some(5), days: Some(2) }).unwrap();
     /// ```
-    pub fn random_delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn random_delay(self, delay: Duration) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_daily_trigger: IDailyTrigger = i_trigger.cast::<IDailyTrigger>()?;
@@ -924,7 +915,7 @@ impl ScheduleBuilder<Event> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .delay(Duration { seconds: Some(2), days: Some(5) }).unwrap();
     /// ```
-    pub fn delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn delay(self, delay: Duration) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_event_trigger: IEventTrigger = trigger.cast::<IEventTrigger>()?;
@@ -942,7 +933,7 @@ impl ScheduleBuilder<Event> {
     /// <https://docs.microsoft.com/en-us/previous-versions//aa385231(v=vs.85)>
     ///
     /// See Subscribing to Events: <https://docs.microsoft.com/en-us/windows/win32/wes/subscribing-to-events>
-    pub fn subscription(self, query: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn subscription(self, query: &str) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_event_trigger: IEventTrigger = trigger.cast::<IEventTrigger>()?;
@@ -965,7 +956,7 @@ impl ScheduleBuilder<Event> {
     ///     .create_event()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_EVENT)?;
             let i_event_trigger: IEventTrigger = trigger.cast::<IEventTrigger>()?;
@@ -981,10 +972,7 @@ impl ScheduleBuilder<Event> {
     /// The property value of the event is defined as an XPath event query.
     ///
     /// See <https://docs.microsoft.com/en-us/windows/win32/taskschd/eventtrigger-valuequeries>
-    pub fn value_queries(
-        self,
-        queries: Vec<(&str, &str)>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn value_queries(self, queries: Vec<(&str, &str)>) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_event_trigger: IEventTrigger = trigger.cast::<IEventTrigger>()?;
@@ -1015,7 +1003,7 @@ impl ScheduleBuilder<Idle> {
     ///     .create_idle()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_IDLE)?;
             let i_idle_trigger: IIdleTrigger = trigger.cast::<IIdleTrigger>()?;
@@ -1039,7 +1027,7 @@ impl ScheduleBuilder<Logon> {
     ///     .create_logon()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_LOGON)?;
             let i_logon_trigger: ILogonTrigger = trigger.cast::<ILogonTrigger>()?;
@@ -1065,7 +1053,7 @@ impl ScheduleBuilder<Logon> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .delay(Duration { seconds: Some(5), days: Some(2) }).unwrap();
     /// ```
-    pub fn delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn delay(self, delay: Duration) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_logon_trigger: ILogonTrigger = trigger.cast::<ILogonTrigger>()?;
@@ -1095,7 +1083,7 @@ impl ScheduleBuilder<Logon> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .user_id("MyDomain\\User").unwrap();
     /// ```
-    pub fn user_id(self, id: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn user_id(self, id: &str) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_logon_trigger: ILogonTrigger = trigger.cast::<ILogonTrigger>()?;
@@ -1122,7 +1110,7 @@ impl ScheduleBuilder<Monthly> {
     ///     .days_of_month(vec![DayOfMonth::Day(1), DayOfMonth::Day(15),
     ///     DayOfMonth::Day(31)]).unwrap();
     /// ```
-    pub fn days_of_month(self, days: Vec<DayOfMonth>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn days_of_month(self, days: Vec<DayOfMonth>) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             let is_out_of_bounds = days.iter().any(|x| match &x {
                 DayOfMonth::Day(int) => !(&1..=&31).contains(&int),
@@ -1130,11 +1118,9 @@ impl ScheduleBuilder<Monthly> {
             });
 
             if is_out_of_bounds {
-                return Err(Box::new(InvalidOperationError {
-                    message:
-                        "Index out of bounds. Days of month must be between 1 and 31 inclusively."
-                            .to_string(),
-                }));
+                return Err(anyhow!(
+                    "Index out of bounds. Days of month must be between 1 and 31 inclusively."
+                ));
             }
 
             let bitwise = days.into_iter().fold(0, |acc, item| {
@@ -1165,7 +1151,7 @@ impl ScheduleBuilder<Monthly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .months_of_year(vec![Month::January, Month::June, Month::December]).unwrap();
     /// ```
-    pub fn months_of_year(self, months: Vec<Month>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn months_of_year(self, months: Vec<Month>) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             let bitwise: i16 = months.into_iter().fold(0, |acc, item| acc + item as i16);
 
@@ -1193,7 +1179,7 @@ impl ScheduleBuilder<Monthly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .random_delay(Duration { days: Some(2), seconds: Some(5) }).unwrap();
     /// ```
-    pub fn random_delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn random_delay(self, delay: Duration) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_monthly_trigger: IMonthlyTrigger = i_trigger.cast::<IMonthlyTrigger>()?;
@@ -1218,7 +1204,7 @@ impl ScheduleBuilder<Monthly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .run_on_last_day(true).unwrap();
     /// ```
-    pub fn run_on_last_day(self, is_run: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn run_on_last_day(self, is_run: bool) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_monthly_trigger: IMonthlyTrigger = i_trigger.cast::<IMonthlyTrigger>()?;
@@ -1241,7 +1227,7 @@ impl ScheduleBuilder<Monthly> {
     ///     .create_monthly()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             self.schedule.force_start_boundary = true;
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_MONTHLY)?;
@@ -1268,7 +1254,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .trigger("MonthlyDOWTrigger", true).unwrap()
     ///     .days_of_week(vec![DayOfWeek::Sunday, DayOfWeek::Thursday]).unwrap();
     /// ```
-    pub fn days_of_week(self, days: Vec<DayOfWeek>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn days_of_week(self, days: Vec<DayOfWeek>) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             let bitwise: i16 = days.into_iter().fold(0, |acc, item| acc + item as i16);
             unsafe {
@@ -1294,7 +1280,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .months_of_year(vec![Month::January, Month::June, Month::December]).unwrap();
     /// ```
-    pub fn months_of_year(self, months: Vec<Month>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn months_of_year(self, months: Vec<Month>) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             let bitwise: i16 = months.into_iter().fold(0, |acc, item| acc + item as i16);
 
@@ -1323,7 +1309,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .random_delay(Duration { seconds: Some(2), days: Some(5) }).unwrap();
     /// ```
-    pub fn random_delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn random_delay(self, delay: Duration) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_monthly_dow_trigger: IMonthlyDOWTrigger =
@@ -1349,7 +1335,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .run_on_last_week(true).unwrap();
     /// ```
-    pub fn run_on_last_week(self, is_run: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn run_on_last_week(self, is_run: bool) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_monthly_dow_trigger: IMonthlyDOWTrigger =
@@ -1375,10 +1361,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .weeks_of_month(vec![WeekOfMonth::Third]).unwrap();
     /// ```
-    pub fn weeks_of_month(
-        self,
-        weeks: Vec<WeekOfMonth>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn weeks_of_month(self, weeks: Vec<WeekOfMonth>) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             let bitwise: i16 = weeks.into_iter().fold(0, |acc, item| acc + item as i16);
             unsafe {
@@ -1404,7 +1387,7 @@ impl ScheduleBuilder<MonthlyDOW> {
     ///     .create_monthly_dow()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_MONTHLYDOW)?;
             let i_monthly_dow_trigger: IMonthlyDOWTrigger = trigger.cast::<IMonthlyDOWTrigger>()?;
@@ -1434,7 +1417,7 @@ impl ScheduleBuilder<Registration> {
     ///         ..Default::default()
     ///     }).unwrap();
     /// ```
-    pub fn delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn delay(self, delay: Duration) -> Result<Self> {
         if let Some(trigger) = &self.schedule.trigger {
             unsafe {
                 let i_registration_trigger: IRegistrationTrigger =
@@ -1458,7 +1441,7 @@ impl ScheduleBuilder<Registration> {
     ///     .create_registration()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_REGISTRATION)?;
             let i_registration_trigger: IRegistrationTrigger =
@@ -1487,7 +1470,7 @@ impl ScheduleBuilder<Time> {
     ///     .create_time()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_TIME)?;
             let i_time_trigger: ITimeTrigger = trigger.cast::<ITimeTrigger>()?;
@@ -1513,7 +1496,7 @@ impl ScheduleBuilder<Time> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .random_delay(Duration {days: Some(2), seconds: Some(5) }).unwrap();
     /// ```
-    pub fn random_delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn random_delay(self, delay: Duration) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_time_trigger: ITimeTrigger = i_trigger.cast::<ITimeTrigger>()?;
@@ -1539,7 +1522,7 @@ impl ScheduleBuilder<Weekly> {
     ///     .create_weekly()
     ///     .trigger("MyTrigger", true).unwrap();
     /// ```
-    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn trigger(mut self, id: &str, enabled: bool) -> Result<Self> {
         unsafe {
             let trigger = self.schedule.triggers.Create(TASK_TRIGGER_WEEKLY)?;
             let i_weekly_trigger: IWeeklyTrigger = trigger.cast::<IWeeklyTrigger>()?;
@@ -1564,7 +1547,7 @@ impl ScheduleBuilder<Weekly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .days_of_week(vec![DayOfWeek::Sunday, DayOfWeek::Thursday]).unwrap();
     /// ```
-    pub fn days_of_week(self, days: Vec<DayOfWeek>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn days_of_week(self, days: Vec<DayOfWeek>) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             let bitwise: i16 = days.into_iter().fold(0, |acc, item| acc + item as i16);
             unsafe {
@@ -1591,7 +1574,7 @@ impl ScheduleBuilder<Weekly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .weeks_interval(1).unwrap();
     /// ```
-    pub fn weeks_interval(self, weeks: i16) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn weeks_interval(self, weeks: i16) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_weekly_trigger: IWeeklyTrigger = i_trigger.cast::<IWeeklyTrigger>()?;
@@ -1618,7 +1601,7 @@ impl ScheduleBuilder<Weekly> {
     ///     .trigger("MyTrigger", true).unwrap()
     ///     .random_delay(Duration { seconds: Some(5), days: Some(2) }).unwrap();
     /// ```
-    pub fn random_delay(self, delay: Duration) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn random_delay(self, delay: Duration) -> Result<Self> {
         if let Some(i_trigger) = &self.schedule.trigger {
             unsafe {
                 let i_weekly_trigger: IWeeklyTrigger = i_trigger.cast::<IWeeklyTrigger>()?;
@@ -1631,11 +1614,8 @@ impl ScheduleBuilder<Weekly> {
     }
 }
 
-fn trigger_uninitialised_error() -> Box<dyn std::error::Error> {
-    Box::new(InvalidOperationError {
-        message: "Trigger has not been created yet. Consider calling ScheduleBuilder.Trigger()"
-            .to_string(),
-    })
+fn trigger_uninitialised_error() -> anyhow::Error {
+    anyhow!("Trigger has not been created yet. Consider calling ScheduleBuilder.Trigger()")
 }
 
 /* actions */
